@@ -28,7 +28,7 @@ jobs:
         run: ./scripts/build-engine.ps1
 
       - name: Install build dependencies
-        run: pip install pytest pyinstaller
+        run: pip install pytest pyinstaller cryptography psutil zlib-ng isal
 
       - name: Run tests
         env:
@@ -36,10 +36,8 @@ jobs:
         run: pytest -v
 
       - name: Build portable executable
-        run: >
-          pyinstaller --onefile --console --name PS5-FPKG-Converter
-          --add-data "engine;engine"
-          main.py
+        shell: pwsh
+        run: ./scripts/build-portable.ps1
 
       - name: Compose portable package
         shell: pwsh

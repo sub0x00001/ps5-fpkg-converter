@@ -3,7 +3,8 @@
 # zlib-ng/isal accelerators) are discovered by scripts/gen-hidden-imports.py.
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path -Parent $PSScriptRoot)
-$py = 'C:\Users\Tiago\AppData\Local\Programs\Python\Python312\python.exe'
+$cmd = Get-Command python -ErrorAction SilentlyContinue
+$py = if ($cmd -and $cmd.Source -notmatch 'WindowsApps') { $cmd.Source } else { 'C:\Users\Tiago\AppData\Local\Programs\Python\Python312\python.exe' }
 
 $flags = @()
 foreach ($m in (& $py scripts\gen-hidden-imports.py)) {
