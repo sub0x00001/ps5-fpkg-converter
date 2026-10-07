@@ -80,6 +80,11 @@ def _run_engine_bridge(argv: Sequence[str]) -> int:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    # Engine output contains Unicode; never die on a cp1252 console.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
     args = list(sys.argv[1:] if argv is None else argv)
 
     if args and args[0] == "--internal-engine":

@@ -100,8 +100,14 @@ def test_build_pkg_then_convert_to_folder(tmp_path, integration_enabled, monkeyp
         [sys.executable, str(_backend()), str(game), str(pkg_dir), "--to", "pkg"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         cwd=str(REPO),
-        env={**__import__("os").environ, "FFPFSC_PKG_TOOL": str(engine.locate_tool())},
+        env={
+            **__import__("os").environ,
+            "FFPFSC_PKG_TOOL": str(engine.locate_tool()),
+            "PYTHONUTF8": "1",
+        },
     )
     assert build.returncode == 0, build.stdout + build.stderr
     built = sorted(pkg_dir.glob("*.pkg"))

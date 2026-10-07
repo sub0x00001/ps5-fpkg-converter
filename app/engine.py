@@ -160,6 +160,9 @@ def run_conversion(
     )
 
     env = dict(os.environ, FFPFSC_PKG_TOOL=str(tool))
+    # The backend prints Unicode (arrows, sizes); force UTF-8 so a cp1252
+    # console cannot crash the child mid-conversion.
+    env["PYTHONUTF8"] = "1"
     if not getattr(sys, "frozen", False):
         # The child resolves `python -m app.cli` from the repo root.
         env["PYTHONPATH"] = os.pathsep.join(
