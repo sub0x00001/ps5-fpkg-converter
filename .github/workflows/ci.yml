@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build conversion engine
+        shell: pwsh
+        run: ./scripts/build-engine.ps1
+
+      - name: Install dev dependencies
+        run: pip install pytest
+
+      - name: Run tests
+        env:
+          FPKGC_INTEGRATION: "1"
+        run: pytest -v
+
+      - name: Smoke test CLI
+        run: python -m app.cli --version

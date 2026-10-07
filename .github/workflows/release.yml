@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  portable:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build conversion engine
+        shell: pwsh
+        run: ./scripts/build-engine.ps1
+
+      - name: Install build dependencies
+        run: pip install pytest pyinstaller
+
+      - name: Run tests
+        env:
+          FPKGC_INTEGRATION: "1"
+        run: pytest -v
+
+      - name: Build portable executable
+        run: >
+          pyinstaller --onefile --console --name PS5-FPKG-Converter
+          --add-data "engine;engine"
+          app/ui.py
+
+      - name: Compose portable package
+        shell: pwsh
+        run: |
+          $stage = "stage/PS5-FPKG-Converter"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item dist/PS5-FPKG-Converter.exe $stage
+          Copy-Item engine/bin/ffpfsc-pkg-tool.exe $stage
+          Copy-Item README.md LICENSE NOTICE.md $stage
+          $zip = "dist/PS5-FPKG-Converter-${{ github.ref_name }}-portable-win64.zip"
+          Compress-Archive -Path stage/PS5-FPKG-Converter -DestinationPath $zip
+          Get-Item $zip | Out-String
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/PS5-FPKG-Converter-${{ github.ref_name }}-portable-win64.zip
