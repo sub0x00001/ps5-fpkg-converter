@@ -39,7 +39,7 @@ jobs:
         run: >
           pyinstaller --onefile --console --name PS5-FPKG-Converter
           --add-data "engine;engine"
-          app/ui.py
+          main.py
 
       - name: Compose portable package
         shell: pwsh
