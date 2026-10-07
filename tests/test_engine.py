@@ -77,3 +77,23 @@ def test_build_command_dev(monkeypatch):
 
 def test_output_formats_are_stable():
     assert engine.OUTPUT_FORMATS == ("folder", "ffpfs", "ffpfsc")
+
+
+def test_unique_target_free_path_unchanged(tmp_path):
+    free = tmp_path / "game.ffpfsc"
+    assert engine._unique_target(free) == free
+
+
+def test_unique_target_numbers_copies(tmp_path):
+    (tmp_path / "game.ffpfsc").write_bytes(b"a")
+    first = engine._unique_target(tmp_path / "game.ffpfsc")
+    assert first.name == "game (1).ffpfsc"
+    first.write_bytes(b"b")
+    second = engine._unique_target(tmp_path / "game.ffpfsc")
+    assert second.name == "game (2).ffpfsc"
+
+
+def test_unique_target_works_for_folders(tmp_path):
+    (tmp_path / "game_extracted").mkdir()
+    target = engine._unique_target(tmp_path / "game_extracted")
+    assert target.name == "game_extracted (1)"

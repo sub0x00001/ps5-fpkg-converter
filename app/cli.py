@@ -56,11 +56,17 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _run_engine_bridge(argv: Sequence[str]) -> int:
-    """Run the vendored backend chain in-process (hidden --internal-engine mode)."""
-    backend_cli = engine.engine_dir() / "backend" / "cli.py"
+    """Run the vendored backend chain in-process (hidden internal-engine mode)."""
+    backend_dir = engine.engine_dir() / "backend"
+    backend_cli = backend_dir / "cli.py"
     if not backend_cli.is_file():
         print(f"[ERROR] engine backend not found: {backend_cli}", file=sys.stderr)
         return 1
+
+    # The backend is shipped as data (not frozen imports): its own sibling
+    # modules (backport, mkpfs, ...) resolve through the backend directory.
+    if str(backend_dir) not in sys.path:
+        sys.path.insert(0, str(backend_dir))
 
     spec = importlib.util.spec_from_file_location("ultrapack_backend_cli", backend_cli)
     module = importlib.util.module_from_spec(spec)
@@ -87,7 +93,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     args = list(sys.argv[1:] if argv is None else argv)
 
-    if args and args[0] == "--internal-engine":
+    if args and args[0] in ("--internal-engine", "_engine"):
         return _run_engine_bridge(args[1:])
 
     parser = _build_parser()

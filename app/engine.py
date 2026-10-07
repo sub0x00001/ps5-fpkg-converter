@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -95,9 +96,10 @@ def locate_tool() -> Optional[Path]:
 
 
 def build_command(chain_args: list[str]) -> list[str]:
-    """Command that re-enters this program in ``--internal-engine`` mode."""
+    """Command that re-enters this program in internal-engine mode."""
     if getattr(sys, "frozen", False):
-        return [sys.executable, "--internal-engine", *chain_args]
+        # Bare word: the PyInstaller bootloader mangles leading-'--' markers.
+        return [sys.executable, "_engine", *chain_args]
     return [sys.executable, "-m", "app.cli", "--internal-engine", *chain_args]
 
 
@@ -126,6 +128,24 @@ def chain_arguments(
     return args
 
 
+def _unique_target(path: Path) -> Path:
+    """Return a free path like ``name (1).ext``, ``name (2).ext``, ... if taken."""
+    if not path.exists():
+        return path
+    for n in range(1, 1000):
+        candidate = path.parent / f"{path.stem} ({n}){path.suffix}"
+        if not candidate.exists():
+            return candidate
+    raise RuntimeError(f"could not find a free name for {path}")
+
+
+def _replace(target: Path) -> None:
+    if target.is_dir() and not target.is_symlink():
+        shutil.rmtree(target)
+    elif target.exists():
+        target.unlink()
+
+
 def run_conversion(
     input_path: str | Path,
     output_dir: str | Path,
@@ -139,7 +159,11 @@ def run_conversion(
 ) -> int:
     """Run one conversion job; return the backend exit code (0 = success).
 
-    ``on_line`` receives every backend output line, already newline-stripped.
+    The engine writes into a staging folder inside the destination and the
+    result is then moved into place: renamed with a copy number (``name
+    (1).ext``) when the target exists, or replaced when ``overwrite`` is set.
+    This keeps the engine from ever prompting (and stalling) about an
+    existing output. ``on_line`` receives every backend output line.
     """
     tool = locate_tool()
     if tool is None:
@@ -149,12 +173,21 @@ def run_conversion(
             "FFPFSC_PKG_TOOL environment variable."
         )
 
+    final_dir = Path(output_dir)
+    final_dir.mkdir(parents=True, exist_ok=True)
+    staging = final_dir / f".fpkgc-staging-{os.getpid()}"
+    if staging.exists():
+        shutil.rmtree(staging, ignore_errors=True)
+    # The engine writes "<stem>_extracted" INTO an existing output dir but
+    # REPLACES a non-existing one, so staging must exist before it starts.
+    staging.mkdir(parents=True, exist_ok=True)
+
     argv = chain_arguments(
         input_path,
-        output_dir,
+        staging,
         output_format,
         sign=sign,
-        overwrite=overwrite,
+        overwrite=True,  # staging is ours; collisions are handled on move
         passcode=passcode,
         temp_dir=temp_dir,
     )
@@ -172,6 +205,7 @@ def run_conversion(
         build_command(argv),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        stdin=subprocess.DEVNULL,  # the engine must never wait on a prompt
         text=True,
         encoding="utf-8",
         errors="replace",
@@ -187,8 +221,18 @@ def run_conversion(
             if on_line is not None:
                 on_line(line)
         proc.stdout.close()
-        return proc.wait()
+        code = proc.wait()
+        if code == 0:
+            for item in sorted(staging.iterdir()) if staging.is_dir() else []:
+                target = final_dir / item.name
+                if overwrite:
+                    _replace(target)
+                    item.rename(target)
+                else:
+                    item.rename(_unique_target(target))
+        return code
     finally:
+        shutil.rmtree(staging, ignore_errors=True)
         with _ACTIVE_LOCK:
             if _ACTIVE_PROC is proc:
                 _ACTIVE_PROC = None

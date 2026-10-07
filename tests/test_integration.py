@@ -122,3 +122,10 @@ def test_build_pkg_then_convert_to_folder(tmp_path, integration_enabled, monkeyp
     dump = out_dir / f"{fixture_pkg.stem}_extracted"
     assert (dump / "eboot.bin").is_file()
     assert (dump / "sce_sys" / "param.json").is_file()
+
+    # Step 3: a second run without --overwrite must not stall; the engine's
+    # "output exists" prompt is bypassed and the copy gets a numbered name.
+    code = cli.main([str(fixture_pkg), "-o", str(out_dir), "--to", "folder"])
+    assert code == 0, capsys.readouterr().out
+    assert (out_dir / f"{fixture_pkg.stem}_extracted (1)" / "eboot.bin").is_file()
+    assert not any(out_dir.glob(".fpkgc-staging-*")), "staging folder left behind"
