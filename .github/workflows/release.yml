@@ -48,7 +48,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item dist/PS5-FPKG-Converter.exe $stage
           Copy-Item engine/bin/ffpfsc-pkg-tool.exe $stage
-          Copy-Item README.md LICENSE NOTICE.md $stage
+          Copy-Item README.md, LICENSE, NOTICE.md -Destination $stage
           $zip = "dist/PS5-FPKG-Converter-${{ github.ref_name }}-portable-win64.zip"
           Compress-Archive -Path stage/PS5-FPKG-Converter -DestinationPath $zip
           Get-Item $zip | Out-String
