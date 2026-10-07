@@ -1,0 +1,25 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+
+# Test caches
+.pytest_cache/
+
+# Engine build outputs (ffpfsc-pkg-tool is built by scripts/build-engine.ps1)
+engine/bin/
+engine/backend/**/bin/
+engine/backend/**/obj/
+engine/backend/**/out/
+
+# OS clutter
+.DS_Store
+Thumbs.db

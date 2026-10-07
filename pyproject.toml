@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ps5-fpkg-converter"
+version = "0.0.1"
+description = "Convert PS5 fake packages (.pkg / FPKG) into launchable formats (folder dump, .ffpfs, .ffpfsc) for jailbroken consoles"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Sub" }]
+maintainers = [{ name = "Sub" }]
+keywords = ["ps5", "fpkg", "pkg", "ffpfsc", "ffpfs", "shadowmount", "homebrew", "converter"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Environment :: X11 Applications :: Tk",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: System :: Archiving",
+]
+
+[project.scripts]
+fpkg-convert = "app.cli:main"
+fpkg-convert-ui = "app.ui:main"
+
+[project.optional-dependencies]
+dev = ["pytest", "pyinstaller"]
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
