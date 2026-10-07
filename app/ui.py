@@ -8,6 +8,7 @@ progress updates, so the window always stays responsive.
 
 from __future__ import annotations
 
+import os
 import queue
 import threading
 import tkinter as tk
@@ -35,6 +36,7 @@ class ConverterApp(tk.Tk):
 
         self._build_widgets()
         self._set_running(False)
+        self.input_var.trace_add("write", lambda *_: self._reset_run_state())
         self.after(POLL_MS, self._drain_queue)
 
     # ------------------------------------------------------------------ UI
@@ -51,7 +53,7 @@ class ConverterApp(tk.Tk):
         ttk.Button(form, text="Browse...", command=self._pick_input).grid(row=0, column=2, **pad)
 
         ttk.Label(form, text="Output directory:").grid(row=1, column=0, sticky="w", **pad)
-        self.output_var = tk.StringVar(value=str(Path.cwd()))
+        self.output_var = tk.StringVar()
         ttk.Entry(form, textvariable=self.output_var).grid(row=1, column=1, sticky="we", **pad)
         ttk.Button(form, text="Browse...", command=self._pick_output).grid(row=1, column=2, **pad)
 
@@ -77,6 +79,13 @@ class ConverterApp(tk.Tk):
         ttk.Checkbutton(form, text="Overwrite existing output", variable=self.overwrite_var).grid(
             row=3, column=2, sticky="w", **pad
         )
+        self.open_dest_var = tk.BooleanVar(value=False)
+        self.open_dest_btn = ttk.Checkbutton(
+            form,
+            text="Open destination folder when finished",
+            variable=self.open_dest_var,
+        )
+        self.open_dest_btn.grid(row=4, column=1, sticky="w", **pad)
         form.columnconfigure(1, weight=1)
 
         progress = ttk.LabelFrame(self, text="Progress")
@@ -112,8 +121,19 @@ class ConverterApp(tk.Tk):
     def _set_running(self, running: bool) -> None:
         self.start_btn.configure(state="disabled" if running else "normal")
         self.stop_btn.configure(state="normal" if running else "disabled")
+        # The open-destination choice is captured when a run starts.
+        self.open_dest_btn.configure(state="disabled" if running else "normal")
         if not running:
             self.progress_bar.configure(value=0)
+
+    def _reset_run_state(self) -> None:
+        """Clear the previous run's progress bar and log (new input, new run)."""
+        self.progress_bar.configure(value=0)
+        self.progress_label.configure(text="Idle.")
+        self.status_var.set("Ready.")
+        self.log_box.configure(state="normal")
+        self.log_box.delete("1.0", "end")
+        self.log_box.configure(state="disabled")
 
     def _pick_input(self) -> None:
         chosen = filedialog.askopenfilename(
@@ -139,6 +159,9 @@ class ConverterApp(tk.Tk):
         if not input_path.is_file():
             messagebox.showerror("Invalid input", f"Input package not found:\n{input_path}")
             return
+        if not str(output_dir):
+            messagebox.showerror("Invalid output", "Choose an output directory first.")
+            return
         if input_path.suffix.lower() != ".pkg":
             if not messagebox.askyesno(
                 "Unusual extension", "The input does not end in .pkg. Continue anyway?"
@@ -154,6 +177,10 @@ class ConverterApp(tk.Tk):
             return
 
         output_dir.mkdir(parents=True, exist_ok=True)
+        self._reset_run_state()
+        open_dest = self.open_dest_var.get()
+        self._run_output_dir = output_dir
+        self._run_open_dest = open_dest
 
         job = _JobHandle()
         with self._job_lock:
@@ -228,6 +255,11 @@ class ConverterApp(tk.Tk):
             self.status_var.set("Done.")
             self.progress_label.configure(text="Conversion finished successfully.")
             self.progress_bar.configure(value=100)
+            if getattr(self, "_run_open_dest", False) and getattr(self, "_run_output_dir", None):
+                try:
+                    os.startfile(str(self._run_output_dir))
+                except OSError:
+                    pass
             messagebox.showinfo("Finished", "Conversion finished successfully.")
         else:
             self.status_var.set(f"Failed (exit code {code}).")
