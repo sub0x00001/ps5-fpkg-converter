@@ -1,0 +1,71 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>PkgTool</RootNamespace>
+    <AssemblyName>ffpfsc-pkg-tool</AssemblyName>
+    <Nullable>enable</Nullable>
+    <LangVersion>13</LangVersion>
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <!-- Magick.NET's Prospero-facing path is reflection-driven, so trimming
+         would rip out the very types the DDS conversion needs. No trim. -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <!-- The one native library (Magick.Native-Q8-arm64.dll.dylib) ships NEXT TO the
+         executable. Bundling it made the .NET host unpack it into ~/.net/ffpfsc-pkg-tool/
+         <bundle hash>/ on first run — a new ~27 MB folder for every build, never removed. -->
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+    <!-- No ReadyToRun precompilation: with it, a Kraken inner-image build of LibProsperoPkg
+         d7090eb6 corrupts memory on macOS arm64 about one run in eight (AccessViolationException
+         on a Parallel.For replica right after "Metadata tables prepared", FailFast, SIGABRT).
+         Measured 2026-10-05 on the homebrew fixture: 0 of 24 runs failed with ReadyToRun code
+         disabled at run time, 3 of 24 with it; excluding only LibProsperoPkg.dll from
+         precompilation did not help (4 of 24). JIT-compiled the tool is stable. -->
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- No compression inside the single-file bundle. With it, every multithreaded pass of the
+         tool died within seconds on macOS arm64 with AccessViolationException on thread-pool
+         workers, in runtime code (Task.FinishContinuations, Aes.Create, a string formatter):
+         12 of 12 runs with 4 workers, in stored mode with no Kraken at all, on net10.0 too,
+         unchanged by DOTNET_EnableWriteXorExecute=0 or DOTNET_TieredCompilation=0. The same
+         build with the compression off: 0 crashes in 26 runs, 4/8/12 Kraken workers, every
+         package byte-identical to the single-worker one (measured 2026-10-06). The binary
+         grows from 38 MB to 82 MB. The ReadyToRun finding below was measured WITH the
+         compression on; retested without it on 2026-10-06, ReadyToRun ran clean too (see below)
+         and is still off: it saved 80 ms per tool start and nothing else. -->
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <DebugType>None</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- LibProsperoPkg 1.2.0 build d7090eb6 (GPL-3.0-or-later) is the one dependency that
+         is not on NuGet. lib/ holds the pristine upstream assembly (LibProsperoPkg.dll.orig)
+         and the patched one the tool links against; see lib/README.md and
+         patches/README.md for the three IL patches and how to re-apply them. -->
+    <Reference Include="LibProsperoPkg"><HintPath>lib\LibProsperoPkg.dll</HintPath></Reference>
+    <!-- The remaining dependencies are the exact NuGet versions LibProsperoPkg 1.2.0
+         was compiled against (assembly versions 2.3.0 / 8.4.0 / 14.15.0). -->
+    <PackageReference Include="BCnEncoder.Net" Version="2.3.0" />
+    <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
+    <!-- Magick.NET is what converts sce_sys/icon0.png to the sce_sys/icon0.dds
+         CNT entry the console needs to launch the app (verified against a
+         reference package that starts on FW 11.60). LibProsperoPkg fails
+         silently if the assembly is absent — the .pkg builds, installs, but
+         does not launch. Ships as ~30 MB of the tool (managed + native). -->
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.15.0" />
+  </ItemGroup>
+  <!-- patches/CecilPatch is its own project (the LibProsperoPkg.dll patcher); keep the
+       SDK's default **/*.cs glob from pulling its sources and obj/ into this assembly. -->
+  <!-- LibOrbisPkg (LGPL-3), vendored source, for reading PS4 packages (ps4-list, ps4-extract);
+       see ../LibOrbisPkg/README.md for the commit and the one change made to it. -->
+  <ItemGroup>
+    <ProjectReference Include="..\LibOrbisPkg\LibOrbisPkg.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="patches\**" />
+    <None Remove="patches\**" />
+    <Content Remove="patches\**" />
+    <EmbeddedResource Remove="patches\**" />
+  </ItemGroup>
+</Project>
