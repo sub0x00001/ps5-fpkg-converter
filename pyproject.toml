@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ps5-fpkg-converter"
-version = "0.0.1"
+version = "0.0.2"
 description = "Convert PS5 fake packages (.pkg / FPKG) into launchable formats (folder dump, .ffpfs, .ffpfsc) for jailbroken consoles"
 readme = "README.md"
 requires-python = ">=3.9"

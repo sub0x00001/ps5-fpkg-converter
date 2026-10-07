@@ -45,9 +45,12 @@ FPKG-input path.
 
 1. Download `PS5-FPKG-Converter-vX.Y.Z-portable-win64.zip` from
    [Releases](../../releases) and extract it anywhere.
-2. Run `PS5-FPKG-Converter.exe`.
-3. Pick the input `.pkg`, the output directory and the format, then
-   **Start**.
+2. Double-click `PS5-FPKG-Converter.exe` for the GUI, or use the CLI from a
+   terminal:
+
+```
+PS5-FPKG-Converter.exe convert INPUT.pkg -o OUTPUT_DIR --to folder
+```
 
 The zip contains both `PS5-FPKG-Converter.exe` and `ffpfsc-pkg-tool.exe` —
 keep them in the same folder.
@@ -65,7 +68,7 @@ Options:
 | `-o, --output DIR` | Output directory (default: current directory) |
 | `--to {folder,ffpfs,ffpfsc}` | Output format (required) |
 | `--sign` | Fake-sign `eboot.bin` / `.prx` / `.sprx` during conversion |
-| `--overwrite` | Replace an existing output |
+| `--overwrite` | Replace an existing output (default: numbered copies like `name (1).ext`) |
 | `--fpkg-passcode CODE` | Package passcode (fake packages use 32 zeros) |
 | `--temp-dir DIR` | Scratch directory used by the engine |
 | `--version` | Print the version |
