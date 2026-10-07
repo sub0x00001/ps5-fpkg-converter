@@ -20,6 +20,12 @@ engine/backend/**/bin/
 engine/backend/**/obj/
 engine/backend/**/out/
 
+# PyInstaller local artifacts (build flags live in scripts/build-portable.ps1)
+*.spec
+
+# Local test playground
+portable-test/
+
 # OS clutter
 .DS_Store
 Thumbs.db
