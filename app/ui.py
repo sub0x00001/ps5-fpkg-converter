@@ -1,7 +1,7 @@
 """Tkinter front-end for PS5 FPKG Converter.
 
-Layout: input package, output directory, output format, progress bar with a
-scrolling log, and Start / Stop / Close buttons. The conversion itself runs in
+Layout: input package, output directory, temp directory, output format,
+progress bar with a scrolling log, and Start / Stop / Close buttons. The conversion itself runs in
 a worker thread; the Tk main loop only drains a queue of log lines and
 progress updates, so the window always stays responsive.
 """
@@ -57,7 +57,15 @@ class ConverterApp(tk.Tk):
         ttk.Entry(form, textvariable=self.output_var).grid(row=1, column=1, sticky="we", **pad)
         ttk.Button(form, text="Browse...", command=self._pick_output).grid(row=1, column=2, **pad)
 
-        ttk.Label(form, text="Output format:").grid(row=2, column=0, sticky="w", **pad)
+        ttk.Label(form, text="Temp directory:").grid(row=2, column=0, sticky="w", **pad)
+        self.temp_var = tk.StringVar()
+        ttk.Entry(form, textvariable=self.temp_var).grid(row=2, column=1, sticky="we", **pad)
+        ttk.Button(form, text="Browse...", command=self._pick_temp).grid(row=2, column=2, **pad)
+        ttk.Label(form, text="Optional. Empty uses the system temp folder; choose a drive with room for ~1.5x the package.").grid(
+            row=3, column=1, columnspan=2, sticky="w", padx=8
+        )
+
+        ttk.Label(form, text="Output format:").grid(row=4, column=0, sticky="w", **pad)
         self.format_var = tk.StringVar(value="folder")
         fmt_box = ttk.Combobox(
             form,
@@ -66,18 +74,18 @@ class ConverterApp(tk.Tk):
             values=list(engine.OUTPUT_FORMATS),
             width=12,
         )
-        fmt_box.grid(row=2, column=1, sticky="w", **pad)
+        fmt_box.grid(row=4, column=1, sticky="w", **pad)
         ttk.Label(form, text="(folder dump, .ffpfs image, .ffpfsc compressed image)").grid(
-            row=2, column=2, columnspan=2, sticky="w", **pad
+            row=4, column=2, columnspan=2, sticky="w", **pad
         )
 
         self.sign_var = tk.BooleanVar(value=False)
         self.overwrite_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(form, text="Fake-sign executables (--sign)", variable=self.sign_var).grid(
-            row=3, column=1, sticky="w", **pad
+            row=5, column=1, sticky="w", **pad
         )
         ttk.Checkbutton(form, text="Overwrite existing output", variable=self.overwrite_var).grid(
-            row=3, column=2, sticky="w", **pad
+            row=5, column=2, sticky="w", **pad
         )
         self.open_dest_var = tk.BooleanVar(value=False)
         self.open_dest_btn = ttk.Checkbutton(
@@ -85,7 +93,7 @@ class ConverterApp(tk.Tk):
             text="Open destination folder when finished",
             variable=self.open_dest_var,
         )
-        self.open_dest_btn.grid(row=4, column=1, sticky="w", **pad)
+        self.open_dest_btn.grid(row=6, column=1, sticky="w", **pad)
         form.columnconfigure(1, weight=1)
 
         progress = ttk.LabelFrame(self, text="Progress")
@@ -149,6 +157,11 @@ class ConverterApp(tk.Tk):
         if chosen:
             self.output_var.set(chosen)
 
+    def _pick_temp(self) -> None:
+        chosen = filedialog.askdirectory(parent=self, title="Select the temp directory")
+        if chosen:
+            self.temp_var.set(chosen)
+
     # ------------------------------------------------------------- actions
 
     def _on_start(self) -> None:
@@ -176,6 +189,15 @@ class ConverterApp(tk.Tk):
             )
             return
 
+        temp_text = self.temp_var.get().strip()
+        temp_dir = Path(temp_text) if temp_text else None
+        if temp_dir is not None:
+            try:
+                temp_dir.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                messagebox.showerror("Invalid temp directory", f"Cannot use {temp_dir}:\n{exc}")
+                return
+
         output_dir.mkdir(parents=True, exist_ok=True)
         self._reset_run_state()
         open_dest = self.open_dest_var.get()
@@ -197,6 +219,7 @@ class ConverterApp(tk.Tk):
                     output_format,
                     sign=self.sign_var.get(),
                     overwrite=self.overwrite_var.get(),
+                    temp_dir=temp_dir,
                     on_line=emit,
                 )
                 self._queue.put(("done", code))

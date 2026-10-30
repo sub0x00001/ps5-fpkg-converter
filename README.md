@@ -27,7 +27,7 @@ the heavy lifting goes to that project and to
 - Streaming progress with speed and ETA (a ~8.5 GB package extracts at
   ~350 MB/s on NVMe — measured on the reference machine).
 - **CLI** (`fpkg-convert`) and **portable GUI** (input file, output format,
-  output path, Start / Stop / Close, progress bar and log).
+  output path, temp directory, Start / Stop / Close, progress bar and log).
 - No Python dependencies at runtime (stdlib only); the portable zip bundles
   everything.
 
@@ -70,7 +70,7 @@ Options:
 | `--sign` | Fake-sign `eboot.bin` / `.prx` / `.sprx` during conversion |
 | `--overwrite` | Replace an existing output (default: numbered copies like `name (1).ext`) |
 | `--fpkg-passcode CODE` | Package passcode (fake packages use 32 zeros) |
-| `--temp-dir DIR` | Scratch directory used by the engine |
+| `--temp-dir DIR` | Scratch directory used by the engine (the GUI's **Temp directory** field); use it when the system drive is small. It needs about 1.5x the package size free |
 | `--version` | Print the version |
 
 Example:

@@ -128,6 +128,28 @@ def chain_arguments(
     return args
 
 
+def child_env(tool: str | Path, temp_dir: Optional[str | Path] = None) -> dict[str, str]:
+    """Environment of the backend chain.
+
+    ``temp_dir`` also goes to TMP/TEMP/TMPDIR: not everything in the chain takes
+    ``--temp-dir`` (some Python scratch folders, the .NET tool), and a small
+    system drive must not fill up with any of it.
+    """
+    env = dict(os.environ, FFPFSC_PKG_TOOL=str(tool))
+    # The backend prints Unicode (arrows, sizes); force UTF-8 so a cp1252
+    # console cannot crash the child mid-conversion.
+    env["PYTHONUTF8"] = "1"
+    if temp_dir:
+        for name in ("TMP", "TEMP", "TMPDIR"):
+            env[name] = str(temp_dir)
+    if not getattr(sys, "frozen", False):
+        # The child resolves `python -m app.cli` from the repo root.
+        env["PYTHONPATH"] = os.pathsep.join(
+            p for p in (str(repo_root()), env.get("PYTHONPATH", "")) if p
+        )
+    return env
+
+
 def _unique_target(path: Path) -> Path:
     """Return a free path like ``name (1).ext``, ``name (2).ext``, ... if taken."""
     if not path.exists():
@@ -181,6 +203,8 @@ def run_conversion(
     # The engine writes "<stem>_extracted" INTO an existing output dir but
     # REPLACES a non-existing one, so staging must exist before it starts.
     staging.mkdir(parents=True, exist_ok=True)
+    if temp_dir:
+        Path(temp_dir).mkdir(parents=True, exist_ok=True)
 
     argv = chain_arguments(
         input_path,
@@ -192,15 +216,6 @@ def run_conversion(
         temp_dir=temp_dir,
     )
 
-    env = dict(os.environ, FFPFSC_PKG_TOOL=str(tool))
-    # The backend prints Unicode (arrows, sizes); force UTF-8 so a cp1252
-    # console cannot crash the child mid-conversion.
-    env["PYTHONUTF8"] = "1"
-    if not getattr(sys, "frozen", False):
-        # The child resolves `python -m app.cli` from the repo root.
-        env["PYTHONPATH"] = os.pathsep.join(
-            p for p in (str(repo_root()), env.get("PYTHONPATH", "")) if p
-        )
     proc = subprocess.Popen(
         build_command(argv),
         stdout=subprocess.PIPE,
@@ -209,7 +224,7 @@ def run_conversion(
         text=True,
         encoding="utf-8",
         errors="replace",
-        env=env,
+        env=child_env(tool, temp_dir),
     )
     global _ACTIVE_PROC
     with _ACTIVE_LOCK:

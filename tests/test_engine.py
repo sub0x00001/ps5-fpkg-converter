@@ -1,5 +1,6 @@
 """Tests for the engine wrapper (no real conversion needed)."""
 
+import io
 import sys
 from pathlib import Path
 
@@ -48,6 +49,44 @@ def test_chain_arguments_all_options(tmp_path):
     assert "--overwrite" in args
     assert args[args.index("--fpkg-passcode") + 1] == "0" * 32
     assert args[args.index("--temp-dir") + 1] == str(tmp_path)
+
+
+def test_child_env_sends_all_scratch_to_the_temp_dir(tmp_path):
+    env = engine.child_env(tmp_path / "tool.exe", tmp_path / "scratch")
+    assert env["FFPFSC_PKG_TOOL"] == str(tmp_path / "tool.exe")
+    for name in ("TMP", "TEMP", "TMPDIR"):
+        assert env[name] == str(tmp_path / "scratch")
+
+
+def test_child_env_keeps_the_system_temp_by_default(tmp_path, monkeypatch):
+    monkeypatch.setenv("TEMP", "system-temp")
+    env = engine.child_env(tmp_path / "tool.exe")
+    assert env["TEMP"] == "system-temp"
+
+
+def test_run_conversion_creates_and_passes_the_temp_dir(tmp_path, monkeypatch):
+    seen = {}
+
+    class FakeProc:
+        stdout = io.StringIO("")
+
+        def __init__(self, cmd, **kwargs):
+            seen["cmd"] = cmd
+            seen["env"] = kwargs["env"]
+
+        def wait(self):
+            return 1
+
+    monkeypatch.setattr(engine, "locate_tool", lambda: tmp_path / "tool.exe")
+    monkeypatch.setattr(engine.subprocess, "Popen", FakeProc)
+    scratch = tmp_path / "other-drive" / "scratch"
+
+    code = engine.run_conversion(tmp_path / "in.pkg", tmp_path / "out", "folder", temp_dir=scratch)
+
+    assert code == 1
+    assert scratch.is_dir()
+    assert seen["cmd"][seen["cmd"].index("--temp-dir") + 1] == str(scratch)
+    assert seen["env"]["TEMP"] == str(scratch)
 
 
 def test_chain_arguments_rejects_bad_format(tmp_path):
